@@ -1,0 +1,106 @@
+[
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "Your team requires that every time Claude edits a Python file, `black` runs on that file with no exceptions, on every developer's machine, enforced by the harness rather than relying on the model to remember. Which configuration is MOST appropriate?",
+    "options": {
+      "A": "Add an instruction to the project CLAUDE.md saying to always run black after editing a Python file",
+      "B": "Define a PostToolUse hook in the committed .claude/settings.json that runs black on the edited file",
+      "C": "Create a .claude/rules/ file with a *.py glob frontmatter describing the black formatting convention",
+      "D": "Build a skill that packages a black-formatting capability and tell the team to invoke it after edits"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is deterministic, zero-exception enforcement run by the harness. Only PostToolUse hooks in settings.json are executed mechanically by the harness after every matching tool call, independent of the model's judgment. CLAUDE.md (A) is auto-loaded context the model may follow inconsistently, not a guarantee. Rules (C) inject path-based guidance into context but still depend on the model acting on them. A skill (D) is a reusable capability that must be invoked, not an automatic always-run trigger. A and C are the kind of guidance that 'usually works' but is not deterministic, making them the strong-looking but wrong choices."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You want Claude to automatically follow a set of layout and import-ordering conventions only when touching files under `src/api/**`, without you having to restate them, and without bloating the always-on context for unrelated files. Which mechanism fits best?",
+    "options": {
+      "A": "A PreToolUse hook that inspects the target file path and injects the conventions before each edit",
+      "B": "A dedicated section in the root CLAUDE.md describing the api-layer conventions for src/api files",
+      "C": "A file in .claude/rules/ with glob frontmatter matching src/api/** that carries the conventions",
+      "D": "A project command in .claude/commands/ that the developer manually runs before editing api files"
+    },
+    "answer": "C",
+    "explanation": "The decisive levers are path-scoped automatic application and not bloating always-on context. .claude/rules/ files with glob frontmatter are loaded only when matching paths are in play, applying conventions automatically and selectively. CLAUDE.md (B) is always-on context for the whole session, defeating the scoping goal. A PreToolUse hook (A) is real but designed to intercept/deny or run commands, not to be the idiomatic vehicle for path-based prose conventions, and it cannot guarantee the model honors injected text. A command (D) requires manual invocation, so it is not automatic. B and A are defensible but each loses on a specific lever rules satisfy directly."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "A CI pipeline must run Claude Code non-interactively to triage failing tests and emit a summary to stdout, with no TTY and no human approvals. Which invocation is correct?",
+    "options": {
+      "A": "Set the CLAUDE_HEADLESS=1 environment variable in the CI job and then run claude normally",
+      "B": "Run claude with the --batch flag so it processes the given prompt without ever prompting the user",
+      "C": "Run claude -p (--print) with the prompt so it executes non-interactively and prints output",
+      "D": "Run claude in interactive mode and pipe `yes` into it to auto-confirm all of the permission prompts"
+    },
+    "answer": "C",
+    "explanation": "Non-interactive headless execution is done with `claude -p`/`--print`, which runs the prompt and writes results to stdout without a TTY. CLAUDE_HEADLESS (A) is not a real environment variable and a --batch flag (B) does not exist; both are plausible-sounding distractors. Piping `yes` (D) is a hack that does not reliably handle the structured permission flow and is not the supported headless path. The trap is that A and B sound like exactly what a CI engineer would reach for, but only C is the actual mechanism."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You are about to undertake a large refactor that spans roughly 15 files across three modules and changes a shared interface. You want Claude to lay out the full approach for your review before it edits anything. What is the MOST appropriate FIRST step?",
+    "options": {
+      "A": "Enter plan mode so Claude researches and proposes a multi-file plan for approval before editing",
+      "B": "Add the refactor steps to CLAUDE.md so the plan persists and Claude follows it across all sessions",
+      "C": "Configure a PreToolUse hook that denies every Edit call until you manually approve each one of them",
+      "D": "Write a project command in .claude/commands/ that encodes the refactor and then run it immediately"
+    },
+    "answer": "A",
+    "explanation": "Plan mode is purpose-built for large, multi-file architectural work: Claude investigates and presents a plan you approve before any edits occur, satisfying the review-before-edits constraint directly. CLAUDE.md (B) is persistent context, not a review gate, and storing a one-off refactor plan there is a misuse. A blanket PreToolUse deny hook (C) could block edits but turns every edit into a friction point and does not produce an upfront reviewable plan; it is a real mechanism applied to the wrong job. A command (D) executes immediately, skipping the review step you explicitly want. C is the tempting runner-up because it 'gates edits,' but it gates execution, not the plan."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "During a session Claude proposes running `terraform apply`. You deny the permission because you want a `plan` first. Which statement correctly describes what should happen next?",
+    "options": {
+      "A": "The denial is just a temporary block, so Claude should immediately retry the same apply command this turn",
+      "B": "The denial means refusal of that action, so Claude should adjust course (e.g., run terraform plan) instead",
+      "C": "Approving any later command in the session permanently whitelists terraform apply for all future sessions",
+      "D": "The denial pauses the harness until you edit settings.local.json to allow terraform apply before continuing"
+    },
+    "answer": "B",
+    "explanation": "A denied permission call is a refusal of that specific action; the correct response is to adjust the plan, not to re-issue the identical command. A (retry) and C (one approval is permanent across sessions) are both wrong because approving a permission once is not permanent and does not whitelist future runs. D invents a hard requirement to hand-edit settings.local.json mid-flow; while settings.local.json does hold personal allow-rules, the harness does not block waiting on it after a single denial. B is correct; A and C are the confident distractors that misstate permission persistence."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You maintain a slash command that scaffolds a new service. You want it available to every teammate who clones the repo, version-controlled alongside the code. Where should it live?",
+    "options": {
+      "A": "In your personal ~/.claude/commands/ directory so it is always available wherever you run Claude Code",
+      "B": "In a .claude/rules/ file with glob frontmatter so it activates whenever service files are being edited",
+      "C": "In the project's settings.local.json under a commands key so it stays personal and stays uncommitted",
+      "D": "In the project's .claude/commands/ directory, committed to the repository so every clone receives it"
+    },
+    "answer": "D",
+    "explanation": "Shared, repo-versioned commands belong in the project's .claude/commands/ directory, which is committed and available to everyone who clones. ~/.claude/commands/ (A) is the personal location, available only to you across projects, so it fails the shared requirement. Rules (B) are for path-based conventions, not invokable scaffolding commands. settings.local.json (C) is explicitly personal and uncommitted, the opposite of shareable, and it is not where commands are defined. A is the strong runner-up because it 'always works for you,' but the decisive lever is shared-with-the-team, which only D delivers."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "Your project needs Claude to be able to query your internal ticketing system and your observability platform during sessions, exposing those as callable tools. All of the following are appropriate building blocks EXCEPT:",
+    "options": {
+      "A": "Configuring MCP servers that expose the ticketing and observability systems as tools Claude can call",
+      "B": "Storing the API tokens for those systems as plaintext values inside the project CLAUDE.md for Claude",
+      "C": "Using settings.local.json to keep your own personal MCP server configuration uncommitted to the repo",
+      "D": "Defining a project command in .claude/commands/ that wraps a common multi-step ticket triage workflow"
+    },
+    "answer": "B",
+    "explanation": "The EXCEPT answer is B: CLAUDE.md is auto-loaded context and must never hold secrets like API tokens, since it is committed and injected into context. The other three are all legitimate: MCP servers (A) are exactly how external systems are exposed as tools; settings.local.json (C) is the right place for personal, uncommitted config including MCP setup; and a project command (D) is a fine way to package a repeatable triage workflow. The trap is that B is phrased as a convenient way to 'let Claude read the tokens,' which is precisely the anti-pattern."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You want a reusable capability that bundles instructions, helper scripts, and reference files so Claude can perform a specialized PDF-extraction task consistently across many projects, loaded only when that task is relevant. Which mechanism is MOST appropriate?",
+    "options": {
+      "A": "A PostToolUse hook in settings.json that triggers the extraction logic after each matching tool call",
+      "B": "A .claude/rules/ file with glob frontmatter so the extraction guidance applies automatically by file path",
+      "C": "A skill that packages the instructions, scripts, and resources as an invokable reusable capability",
+      "D": "A block of extraction instructions placed in the root CLAUDE.md so it is always loaded into the context"
+    },
+    "answer": "C",
+    "explanation": "Skills are the mechanism for packaging a reusable capability (instructions plus bundled scripts and reference files) that loads when relevant, which is exactly the requirement. A PostToolUse hook (A) runs deterministic commands after tool calls; it is not a vehicle for a bundled, model-invoked capability. Rules (B) apply path-based prose conventions but cannot bundle scripts and resources as a capability. Putting it in CLAUDE.md (D) makes it always-on context with no script bundling, bloating every session and missing the load-when-relevant goal. B and D are defensible context mechanisms but lose on the capability-packaging and on-demand-loading levers that only a skill satisfies."
+  }
+]
