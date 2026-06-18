@@ -1,0 +1,145 @@
+[
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An orchestrator agent runs a payments workflow where it must (1) verify funds, (2) place a hold, then (3) capture the charge, strictly in that order. The system prompt clearly instructs the model to follow the sequence. In load testing, roughly 1 in 400 runs captures before the hold is confirmed, double-charging the customer. What is the MOST effective fix?",
+    "options": {
+      "A": "Move the ordering rules into a dedicated, emphasized section of the system prompt and add few-shot examples that demonstrate the correct sequence under edge cases",
+      "B": "Wrap the three steps in code so capture is structurally unreachable until the hold call returns a confirmed status, removing ordering from the model's discretion",
+      "C": "Lower the sampling temperature for the orchestrator so the model adheres more reliably to the documented step order across runs",
+      "D": "Add a validation subagent that reviews the orchestrator's planned tool calls and flags any out-of-order sequence before execution proceeds"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is irreversible financial harm at a residual error rate that prompt-based methods cannot drive to zero. B enforces the sequence deterministically in code, so the unsafe path is structurally impossible. A and C only improve probabilistic compliance and leave a non-zero failure rate, unacceptable for double-charging. D is the strong runner-up and genuinely helpful, but it is still a model reviewing a model (probabilistic) and adds latency; a critical, well-defined sequence belongs in deterministic control flow, not in another LLM check."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A research agent fans out to four subagents, each reading a large document set. The lead agent's context window keeps overflowing because each subagent returns its full retrieved passages plus reasoning traces. Throughput is fine; the only problem is the lead exhausting context. Which change addresses the root cause?",
+    "options": {
+      "A": "Increase the lead agent's context window to the largest available size so all four subagent outputs fit comfortably with headroom to spare",
+      "B": "Have each subagent return only a distilled conclusion with the specific citations the lead needs, omitting raw passages and intermediate reasoning",
+      "C": "Run the four subagents sequentially instead of in parallel so their outputs arrive one at a time and can be summarized between calls",
+      "D": "Persist each subagent's full output to a shared store and pass the lead only file references it can selectively re-read when required"
+    },
+    "answer": "B",
+    "explanation": "The root cause is that subagents dump raw context upward; the correct contract is that a subagent returns a distilled conclusion, not its working set. B fixes this directly. A merely defers the overflow and raises cost/latency without addressing the dump. C changes scheduling, not payload size, and needlessly sacrifices parallelism for independent tasks. D is the plausible runner-up and can help, but it adds an external store and re-read round-trips when the real fix is simply having subagents summarize before returning; D treats the symptom (where bytes live) rather than the contract violation."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A pipeline has steps: A (fetch user profile), B (fetch product catalog), C (fetch inventory), and D (generate a personalized recommendation that needs the outputs of A, B, and C). A, B, and C are independent network calls of similar latency. The team wants to minimize end-to-end latency. Which orchestration is correct?",
+    "options": {
+      "A": "Run A, then B, then C sequentially to keep error handling simple, and run D once the third call returns its result to the orchestrator",
+      "B": "Run A, B, and C in parallel, then place a barrier so D begins only after all three have returned successfully",
+      "C": "Run A, B, C, and D all in parallel and have D retry internally until the other three calls have populated their shared results",
+      "D": "Run A and B in parallel, then run C, and finally run D, overlapping only the two calls that share an upstream dependency"
+    },
+    "answer": "B",
+    "explanation": "A, B, C are independent, so they should run concurrently; D depends on all three, so a single barrier before D is exactly right. B states this. A serializes independent work and inflates latency for no benefit. C is wrong because D cannot start before its inputs exist; retry-spinning wastes calls and risks acting on partial data. D invents a dependency between A and C that the scenario does not state and only partially parallelizes, leaving latency on the table. The lever here is the latency budget plus true independence."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A subagent's job is to read three specific log files and report whether a given error signature appears. To make it robust against unforeseen needs, an engineer proposes granting it the full filesystem read tool, a shell-execution tool, and an outbound HTTP tool. From an architecture standpoint, which is the FIRST concern to raise?",
+    "options": {
+      "A": "The broad grants violate least privilege; the subagent should receive only a read capability scoped to the three log paths it actually needs",
+      "B": "The shell and HTTP tools will materially increase token usage because their schemas are large and consume space in every prompt sent to the subagent",
+      "C": "Outbound HTTP access could make the subagent's responses slower and less deterministic, which complicates reproducing results during evaluation runs",
+      "D": "Granting many tools raises the chance the model selects an irrelevant tool, lowering task accuracy on the narrow log-inspection objective it was given"
+    },
+    "answer": "A",
+    "explanation": "Least privilege is the governing principle: a subagent should hold only the tools its task requires, and a log reader needs a path-scoped read capability, nothing more. A names this directly as the first concern. D is true and a real secondary effect (tool-selection noise), but it is a performance argument, not the primary safety/architecture issue. B and C are also genuine but minor considerations (prompt size, determinism) that miss the central point that shell and unrestricted network access on a read-only task is an unnecessary blast-radius expansion."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A tool-calling agent occasionally fails when a downstream API returns a 429 rate-limit error. Currently the tool wrapper catches the exception and returns the string 'Tool failed' to the model. The agent then either gives up or blindly retries identical calls. Which change will MOST improve the agent's ability to recover autonomously?",
+    "options": {
+      "A": "Return a structured error to the model containing the error type, that it is retryable, and the suggested wait time before the next attempt",
+      "B": "Suppress the error entirely and have the wrapper transparently retry the call a fixed number of times before surfacing anything to the model",
+      "C": "Instruct the agent in its system prompt to wait and retry whenever any tool returns the generic 'Tool failed' message it receives",
+      "D": "Escalate every 429 to a human operator who can decide whether the agent should pause, retry, or abandon the current task entirely"
+    },
+    "answer": "A",
+    "explanation": "Recovery depends on the model receiving structured, actionable error context: error class, retryability, and backoff guidance let it reason about the right next action. A provides exactly that. B (wrapper-level retry with backoff) is the strong runner-up and is good practice for transient errors, but used alone it hides the failure mode from the model and cannot handle cases where the model should change strategy rather than wait; the question asks about the agent's own recovery ability. C keeps the opaque string, so the agent still cannot distinguish retryable from fatal. D removes autonomy for a routine, self-healable condition and does not scale."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A team is deciding whether to build a multi-agent orchestration for a task that classifies an incoming support email into one of five categories and drafts a one-line acknowledgment. Volume is high and the task is well-bounded. What is the BEST architectural recommendation?",
+    "options": {
+      "A": "Use a multi-agent design with a classifier subagent and a drafting subagent so each component stays focused and can be evaluated independently",
+      "B": "Handle it with a single agent (or a single model call), since the task is trivial and orchestration overhead would add cost and latency for no benefit",
+      "C": "Use an orchestrator with one subagent per category so each specialist can be tuned for the language patterns of the class it owns over time",
+      "D": "Adopt an evaluator-optimizer loop where a drafting agent proposes the acknowledgment and a critic agent iterates until phrasing quality converges"
+    },
+    "answer": "B",
+    "explanation": "The decisive facts are that the task is trivial and well-bounded at high volume, where multi-agent overhead (extra calls, coordination latency, cost) buys nothing. B is correct. A and C add structure that a single call handles, and C's per-category fan-out is especially wasteful. D applies an evaluator-optimizer pattern, which is appropriate only when output quality is hard to get right in one shot and you have actionable criteria plus bounded iteration; for a one-line acknowledgment that is over-engineering. A and D are defensible-sounding precisely because those patterns are good elsewhere, but not for this trivial workload."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An evaluator-optimizer loop improves generated SQL: a generator writes a query, an evaluator scores it, and the generator revises. In production the loop sometimes runs 30+ iterations, occasionally never terminating, and the evaluator's feedback is often just a numeric score with no detail. Which pair of changes most directly fixes the loop's design flaws?",
+    "options": {
+      "A": "Add a hard maximum iteration count with a fallback, and have the evaluator return specific, actionable critique the generator can act on each round",
+      "B": "Replace the single evaluator with three evaluators that vote, and raise the passing score threshold so only high-quality queries are accepted",
+      "C": "Cache previously generated queries so the generator can reuse close matches, and lower the evaluator's threshold to make convergence faster",
+      "D": "Run the generator and evaluator in parallel so feedback arrives sooner, and log every iteration to a store for later offline analysis of failures"
+    },
+    "answer": "A",
+    "explanation": "Evaluator-optimizer loops require two things to be sound: bounded iteration (so they always terminate) and actionable criteria (so each revision is informed rather than a blind retry). A delivers exactly both, fixing the runaway-loop and the uninformative-score problems. B adds evaluators and raises the bar, which can worsen non-termination, not fix it, and does nothing about feedback quality. C trades correctness for speed and still has no iteration bound. D is incoherent: the evaluator depends on the generator's output, so they cannot run in parallel, and logging helps debugging but not the live loop."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A lead agent dispatches subagents to draft sections of a compliance report. One subagent must apply a redaction policy to personally identifiable information before its section is merged. Auditors require that redaction provably occurs on every run, with zero tolerance for leakage. The current design relies on the subagent's prompt to redact. What should the architect change FIRST?",
+    "options": {
+      "A": "Apply redaction in a deterministic post-processing function over each section's text, so unredacted PII cannot reach the merged report regardless of model behavior",
+      "B": "Strengthen the subagent's prompt with explicit redaction rules and examples, and add a reminder of the policy in the lead agent's merge instructions",
+      "C": "Add a second reviewer subagent that re-reads each section and flags any PII the first subagent missed before the lead merges the content together",
+      "D": "Lower the subagent's temperature and pin the model version so redaction behavior stays consistent and reproducible across every report it generates"
+    },
+    "answer": "A",
+    "explanation": "Zero-tolerance, auditable redaction is a critical guarantee, and guarantees come from deterministic enforcement, not prompt compliance. A places redaction in code that runs unconditionally, so leakage is structurally prevented and provable to auditors. C is the strongest runner-up and adds defense in depth, but it is still a probabilistic model checking another model and cannot certify zero leakage. B and D only tune the likelihood of correct model behavior; neither can satisfy a zero-tolerance, provable requirement. The lever is compliance plus irreversibility of a leak."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An orchestrator coordinates five subagents. The team observes that when one subagent fails, the lead agent often hallucinates a plausible-but-wrong substitute result and continues, corrupting the final output. Which design choice would do the LEAST to prevent this failure mode?",
+    "options": {
+      "A": "Have failing subagents return structured error objects so the lead can distinguish a real failure from a successful result and branch accordingly",
+      "B": "Add a barrier that halts the dependent merge step until every required subagent has returned an explicit success or failure status",
+      "C": "Give the lead agent a larger context window so it can hold all five subagents' outputs and historical attempts at once during the run",
+      "D": "Define an explicit fallback path the lead must follow when a required subagent reports failure, rather than letting it improvise a result"
+    },
+    "answer": "C",
+    "explanation": "This is an EXCEPT-style question: three options attack the hallucinated-substitute problem, one barely touches it. C (a larger context window) does nothing to stop the lead from inventing a result when a subagent fails; the issue is missing failure signaling and control flow, not context capacity. A gives the lead a clear failure signal, B forces it to wait for explicit statuses before merging, and D removes the temptation to improvise by specifying a real fallback. C is the correct choice because it is the least effective at preventing the described corruption."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A trading-ops agent must place an order only if a risk check passes. The risk check is a separate tool. Today the agent calls the risk tool and the order tool, and a prompt tells it to skip the order if risk fails. Compliance now mandates that an order can NEVER be placed without a passing risk result, even under prompt-injection attempts in the input data. What is the soundest architecture?",
+    "options": {
+      "A": "Gate the order tool behind code that invokes it only when the risk check returns a pass, so no model decision or injected instruction can place an order otherwise",
+      "B": "Add a strongly worded immutable system prompt forbidding orders without a passing risk check, and test it against a suite of known injection prompts",
+      "C": "Route every order through a supervisor agent whose sole instruction is to confirm the risk check passed before allowing the order to proceed downstream",
+      "D": "Sanitize all incoming data to strip instruction-like text before the agent sees it, preventing injected commands from altering the order decision logic"
+    },
+    "answer": "A",
+    "explanation": "Against an adversarial, irreversible action with a compliance mandate, the only sound approach is deterministic enforcement: code gates the order tool on a passing risk result, so neither the model nor any injected instruction can bypass it. A does this. B relies on prompt adherence, which injection is specifically designed to defeat; testing reduces but never eliminates the risk. C is the runner-up but is still a model enforcing the rule and is itself injection-susceptible. D (input sanitization) is useful defense in depth but cannot be proven complete and does not, by itself, make the unsafe order structurally impossible."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A document-processing system uses one orchestrator and several subagents. Latency is dominated by the orchestrator waiting on a single subagent that summarizes a 200-page contract, while three other independent subagents finish quickly and sit idle. A dependent finalization step needs all four outputs. Which is the MOST effective NEXT step to cut end-to-end latency?",
+    "options": {
+      "A": "Split the long contract into sections summarized by parallel sub-subagents, then combine, so the slow path shrinks before the barrier the finalize step needs",
+      "B": "Run the three fast subagents sequentially after the slow one so the orchestrator manages fewer concurrent calls and reduces coordination complexity overall",
+      "C": "Remove the barrier and let the finalization step begin as soon as the three fast subagents return, incorporating the contract summary whenever it arrives",
+      "D": "Switch the orchestrator to a faster, smaller model so it issues and collects the four subagent calls with less per-step overhead during the run"
+    },
+    "answer": "A",
+    "explanation": "The critical path is the single long summarization; the fast subagents already run concurrently, so the only way to cut end-to-end latency is to shorten that longest task. A parallelizes the slow work itself (map-reduce over sections), directly attacking the bottleneck before the necessary barrier. B serializes independent work and makes things worse. C is tempting but unsound: the finalize step genuinely depends on all four outputs, so removing the barrier risks acting on incomplete data. D targets orchestrator overhead, which is negligible compared to the 200-page summarization dominating latency."
+  }
+]

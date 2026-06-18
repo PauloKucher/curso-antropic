@@ -1,0 +1,106 @@
+[
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A service asks Claude for a JSON config object and parses the first line as JSON. The model reliably emits well-formed, schema-valid JSON, but about a third of responses begin with a chatty sentence like \"Sure! Here is the configuration you requested:\" before the object, so the naive line parser fails. The team cannot change the parser and wants the response to start with the JSON itself. What is the MOST reliable fix?",
+    "options": {
+      "A": "Prefill the assistant turn with an opening \"{\" so the model continues directly into the object and cannot emit any preamble before it",
+      "B": "Add a final user instruction reading \"Do not include any introductory text; respond with the JSON object only\" and repeat it for emphasis at the top of the prompt as well",
+      "C": "Set temperature to 0 so the decoding is deterministic and the model stops producing the variable conversational opener on each request",
+      "D": "Wrap the request in XML tags such as <output_format>json</output_format> to signal that only the structured object is expected in the reply"
+    },
+    "answer": "A",
+    "explanation": "A wins because prefilling the assistant turn with \"{\" physically locks the first emitted token to the start of the object, so the boilerplate sentence is impossible by construction. B is the strong runner-up — a positive/negative format instruction often helps — but it only asks the model to comply and the 33% leakage shows it sometimes won't; it does not lock the start of the response, which is the actual broken thing here. C only reduces variance; the deterministic output could just as easily be the version WITH the preamble, so it fixes nothing structural. D labels the desired format but still leaves the model free to write a sentence before the JSON, so the parser keeps failing."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A newsroom tool generates one-paragraph article summaries. The facts are always correct, but the voice swings wildly: some summaries open with a question, some are breezy, some are dense and formal, and sentence structure is inconsistent across runs. Editors want every summary to read in the same tight, neutral house style. The reasoning is fine; only the tone, structure, and format drift. What is the BEST fix?",
+    "options": {
+      "A": "Add a chain-of-thought step instructing the model to first reason about the ideal tone, then plan the structure, and only then write the final summary paragraph",
+      "B": "Lengthen the style guide in the system prompt with many more adjectives describing the desired voice (e.g. crisp, neutral, authoritative, concise, measured)",
+      "C": "Provide three or four few-shot examples of source-to-summary pairs that all demonstrate the exact house voice and paragraph structure you want repeated",
+      "D": "Lower the temperature toward 0 so the model's stylistic choices become deterministic and stop varying so much from one summary to the next"
+    },
+    "answer": "C",
+    "explanation": "C wins because tone, structure, and format are pattern-matching targets that few-shot examples pin far more precisely than any description — the model imitates the demonstrated voice. B is the strong runner-up — enriching the style description is a legitimate move — but adjectives are interpreted loosely and different runs still land in different places; showing the pattern beats describing it. A misdiagnoses the problem as a reasoning gap when reasoning is already correct, adding cost without fixing voice. D narrows variance but, with no example to anchor on, simply locks in one arbitrary style that may not be the house voice at all."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A single prompt contains, in free-flowing prose, the task instructions, three long reference policy documents, two worked examples, and the end-user's actual question, all run together. The model frequently treats reference text as if it were the user's question, or answers using an example's scenario instead of the real query. The content is all correct and necessary; the model just cannot tell the parts apart. What change helps MOST?",
+    "options": {
+      "A": "Move the user's question to the very end of the prompt and prepend the line \"Answer only the final question below\" so that recency effects keep the model focused on the correct input each time",
+      "B": "Wrap each section in distinct XML tags such as <instructions>, <reference_docs>, <examples>, and <query> so the model can reliably separate and address each part",
+      "C": "Summarize the three reference documents down to a few bullet points each so the prompt is shorter and the question is easier for the model to locate",
+      "D": "Add a system role describing the model as a meticulous policy analyst who carefully distinguishes between source material and the user's actual request"
+    },
+    "answer": "B",
+    "explanation": "B wins because the failure is purely structural — the parts are undelimited — and XML section tags give the model unambiguous boundaries so it knows which block is the query versus reference versus example. A is the strong runner-up — repositioning the query and adding a focus instruction leverages real recency effects — but with everything still run together the model can still misattribute reference or example text; it treats a symptom rather than the missing structure. C loses information by compressing source docs that were stated to be necessary and still leaves the remaining parts undelimited. D sets a persona but does nothing to mark where one section ends and the next begins."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A pipeline assigns ICD-10 medical billing codes from clinical notes. Accuracy is mediocre: the model picks plausible-sounding but wrong codes and uses loose lay vocabulary instead of precise clinical terms. The team keeps appending more individual coding facts and edge cases into the user turn, but accuracy barely moves. They want the model to reason with the right domain framing and vocabulary. What is the MOST effective change?",
+    "options": {
+      "A": "Set an explicit system role establishing the model as an experienced certified medical coder, grounding its vocabulary and domain priors for the task",
+      "B": "Continue expanding the user turn with as many additional specific ICD-10 facts, documentation exceptions, and individual code mappings as can possibly fit into the available context window for the request",
+      "C": "Lower the temperature to 0 so the model consistently selects the same code for a given note and stops varying between plausible alternatives",
+      "D": "Ask the model to list three candidate codes with confidence scores and then pick the highest-scoring one as its final answer for each note"
+    },
+    "answer": "A",
+    "explanation": "A wins because a system role activates the domain priors and precise vocabulary of a medical coder across the whole task, which is exactly the framing the output is missing. B is the strong runner-up — relevant domain facts do help — but the team has already shown that piling more facts into the user turn yields little, because the problem is framing and vocabulary, not a missing fact list. C only stabilizes which wrong code gets chosen; consistency is not accuracy. D adds a self-scoring ritual whose confidence numbers are unreliable and does nothing to correct the underlying domain grounding."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "One prompt asks the model, in a single pass, to (1) translate a customer email, (2) classify its intent, (3) extract order IDs, (4) draft a reply, and (5) flag compliance risks. Output quality is poor on every one of the five tasks at once. The instructions for each task are individually clear and correct. What is the MOST effective restructuring?",
+    "options": {
+      "A": "Decompose the work into a chain of focused steps, each prompt (or call) handling one subtask and passing its output to the next",
+      "B": "Keep the single prompt but add several more clarifying sentences and constraints under each of the five task headings to tighten the instructions",
+      "C": "Reorder the five tasks so the most important one appears last, using recency to make sure at least that task is handled well",
+      "D": "Set temperature to 0 across the combined prompt so all five tasks are handled deterministically and stop varying between runs"
+    },
+    "answer": "A",
+    "explanation": "A wins because cramming five distinct objectives into one pass overloads the model and degrades all of them; splitting into a chain of focused steps lets each call do one thing well. B is the strong runner-up — clearer per-task instructions is normally sound — but the instructions are already clear; the bottleneck is doing five things simultaneously, so more text in the same overloaded prompt will not fix it. C only rescues one task at the expense of the rest. D reduces randomness but a deterministically mediocre five-in-one answer is still mediocre."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A support assistant writes multi-paragraph answers grounded in a set of provided knowledge-base articles. The articles are accurate, but the long answers sometimes assert specifics — version numbers, limits, dates — that appear nowhere in the sources. Leadership needs every factual claim to be traceable to the supplied documents. What is the MOST effective change?",
+    "options": {
+      "A": "Lower the temperature toward 0 so the model becomes more conservative and is far less likely to invent the unsupported version numbers, limits, and dates that currently appear in its long multi-paragraph answers",
+      "B": "Instruct the model to base every claim only on the provided articles and to quote or cite the exact supporting passage for each factual statement it makes",
+      "C": "Add a closing instruction telling the model to be accurate and to avoid making things up when it writes the multi-paragraph support answer",
+      "D": "Move the knowledge-base articles to the very top of the prompt so they sit far from the question and benefit from primacy positioning"
+    },
+    "answer": "B",
+    "explanation": "B wins because requiring each claim to be tied to a quoted/cited source passage forces grounding and makes unsupported specifics visible and avoidable — directly satisfying the traceability requirement. A is the strong runner-up — lower temperature does modestly reduce confabulation — but it never enforces grounding; a low-temperature model can still confidently state an unsupported version number. C is a vague exhortation with no mechanism behind it. D adjusts positioning but the articles are already available; placement is not why the model invents specifics, so it does not establish traceability."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A marketing-copy generator keeps naming rival brands. The prompt says \"Do NOT mention any competitor brands,\" yet roughly one draft in eight still slips in a competitor's name, often while explaining how the product is better. The constraint cannot be relaxed. What is the MOST reliable prompt fix?",
+    "options": {
+      "A": "Repeat the negative rule far more emphatically and entirely in capital letters — \"NEVER, under any circumstances whatsoever, mention a competitor brand\" — placed at both the very start and the very end of the prompt",
+      "B": "Replace the prohibition with a positive instruction: describe the product only on its own merits, and where a comparison is implied, refer generically to \"other options\" instead of naming a brand",
+      "C": "Set the temperature parameter all the way down to 0 so that generation becomes fully deterministic and the model reliably stops emitting the competitor brand names that currently leak into roughly one finished draft in every eight produced",
+      "D": "Append a long explicit list of every competitor brand name that the model must be careful never to write anywhere in the marketing copy"
+    },
+    "answer": "B",
+    "explanation": "B wins because negative instructions keep the forbidden concept active in the model's attention; restating the goal positively — what TO write, plus the generic phrasing to use instead — removes the need to reference brands at all. A is the strong runner-up — stronger placement and emphasis is a real technique — but it doubles down on the negative framing that is itself the failure mode, so leaks persist. C only removes randomness, not the tendency to name brands. D actively backfires by enumerating and priming the very names the model should avoid, raising the chance they surface."
+  },
+  {
+    "domain": "D4",
+    "difficulty": "hard",
+    "q": "A binary spam/not-spam classifier runs at very high QPS under a tight per-request latency budget, and on a labeled set it is already highly accurate emitting a one-token label directly. An engineer proposes adding a chain-of-thought step \"to be safe,\" having the model reason through each message before answering. Given the constraints, what is the BEST recommendation?",
+    "options": {
+      "A": "Add a brief chain-of-thought before the label so the model reasons through every message, accepting the extra tokens as a safety margin on accuracy",
+      "B": "Add chain-of-thought reasoning but cap it at a short fixed token length so that the reasoning cost stays bounded per request while still providing some accuracy cushion on the harder, more ambiguous messages",
+      "C": "Do not add chain-of-thought; keep the direct one-token classification, optionally reinforcing it with a few-shot examples or a constrained enum label",
+      "D": "Raise the temperature slightly so the model explores more before committing to a label, improving robustness on the genuinely ambiguous messages"
+    },
+    "answer": "C",
+    "explanation": "C wins because the task is simple and already highly accurate, so CoT adds latency and token cost with no accuracy benefit — CoT is not universally helpful — and the latency-sensitive, high-QPS setting makes the direct label (optionally a few-shot or enum) the right call. A is the tempting runner-up: \"reasoning is safer\" sounds prudent, but here it spends the scarce latency budget for no measured gain, which is the decisive constraint. B is the same mistake with a smaller bill — still added cost for no demonstrated accuracy lift. D injects randomness into a classification that benefits from determinism, risking accuracy rather than improving it."
+  }
+]

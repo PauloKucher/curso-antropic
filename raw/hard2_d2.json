@@ -1,0 +1,93 @@
+[
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "An analytics agent calls `query_events(filter)` and the tool returns every matching event — frequently 10,000+ rows — as a single JSON blob. The blob alone consumes most of the context window, so the model loses track of the user's actual question and answers poorly. The data set is far larger than any single answer needs. What is the MOST effective fix?",
+    "options": {
+      "A": "Keep returning the full result set but instruct the model in the system prompt to read only the first few rows and ignore the rest of the payload it received",
+      "B": "Add server-side filtering and pagination so the tool accepts query predicates plus a row limit and returns only the relevant subset of events per call",
+      "C": "Return the complete payload, then have the model immediately call a second tool that summarizes the rows down to a short digest before reasoning over them",
+      "D": "Switch the response encoding from verbose JSON to compact CSV so the same 10,000 rows occupy fewer tokens in the context window"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is that the full result set is far larger than any answer needs and is flooding context before the model can reason. The cure is to never transmit the excess: server-side filtering plus a limit/pagination returns only relevant rows (B). The strong runner-up is C (summarize after the fact) — defensible in general, but it still loses because the 10,000 rows must first land in context to be summarized, so the flood already happened; you have paid the token cost and risk truncation before any digest exists. A merely hopes the model self-limits while still receiving everything — the data is already in context, so it does not reduce the flood. D shrinks per-row cost but 10,000 CSV rows still overwhelm context; it treats a symptom, not the volume."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A workspace exposes a genuinely useful tool `reconcile_ledger(period)`, but telemetry shows the model almost never selects it even in situations where it is exactly the right call. Its current description reads 'Ledger utility for accounting tasks.' The tool's schema and behavior are correct; only its selection rate is poor. What change will most improve how often the model picks it appropriately?",
+    "options": {
+      "A": "Rename the tool from `reconcile_ledger` to `accounting_ledger_reconciliation_tool_v2` so its purpose is clearer from the identifier the model sees",
+      "B": "Add two optional parameters (`currency`, `granularity`) so the tool can handle more variations of accounting requests and therefore matches more queries",
+      "C": "Rewrite the description to state precisely what the tool does and the exact conditions under which the model should call it versus alternatives",
+      "D": "Lower the temperature of the model so its tool-selection sampling becomes more deterministic and it stops skipping the relevant tool"
+    },
+    "answer": "C",
+    "explanation": "The decisive fact is that the tool is correct but under-selected, and the description is vague. The description is the primary signal the model uses to choose a tool, so making it precise about what it does and when to use it directly fixes selection (C). The strong runner-up is A (renaming) — a clearer name does help selection somewhat and is good practice, but the name is a far weaker signal than the description and a verbose name cannot convey when to use it versus alternatives; the vague description remains the bottleneck. B adds capability nobody said was missing and does nothing for selection. D changes sampling determinism but cannot make the model favor a tool it has no clear reason to pick."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A deployment tool `apply_migration(plan_id)` fails intermittently and currently surfaces failures by returning the raw runtime stack trace as a 500-style opaque text string. The agent reading this cannot tell whether to retry, fix its input, or stop — so it loops blindly. You want the agent to recover autonomously when recovery is possible. What is the best redesign of the failure path?",
+    "options": {
+      "A": "Return the full stack trace but prepend a short human-readable sentence summarizing the exception so the agent has a friendlier message to read at the top",
+      "B": "Suppress errors entirely and return a generic success acknowledgement, logging the real failure to an internal dashboard the operations team monitors separately",
+      "C": "Return a structured error object containing an error-type code, a boolean retryable flag, and the offending field so the agent can branch on how to respond",
+      "D": "Keep the opaque string but attach the migration's correlation id so an engineer can later look up the full context of the failure in the logs"
+    },
+    "answer": "C",
+    "explanation": "The decisive constraint is that the agent must decide autonomously whether to retry, fix input, or stop — which requires machine-readable signals. A structured error with type, retryable flag, and offending field gives the agent exactly those branch points (C). The strong runner-up is A (stack trace plus a summary sentence) — adding a readable summary is better than nothing and looks helpful, but free text is still not reliably parseable; the agent cannot deterministically branch on prose, so it still risks blind looping. B hides the failure and produces false success — the worst outcome for an agent. D aids human post-mortems but gives the live agent no actionable signal to recover."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "Your team has a repeatable, parameterized multi-step interaction — 'open an incident review': gather the incident id, pull related logs, draft a timeline, and request sign-off — that several different client apps all want to trigger identically. Today each client hard-codes its own copy of the orchestration text, and they have already drifted apart. You want one shared, parameterized definition that any MCP client can invoke. Which MCP primitive should host this?",
+    "options": {
+      "A": "Define it as an MCP prompt primitive that the server exposes with parameters, so every client invokes one shared, versioned interaction template",
+      "B": "Encapsulate the entire four-step workflow inside a single MCP tool that runs all steps server-side and returns the finished incident review to the caller",
+      "C": "Expose the incident data as an MCP resource and let each client keep composing its own orchestration around that resource as it sees fit",
+      "D": "Publish the orchestration steps as documentation in a shared README so every client team copies the same canonical wording into their own app"
+    },
+    "answer": "A",
+    "explanation": "The decisive need is a shared, parameterized, client-invocable interaction template that stops drift — which is exactly what an MCP prompt primitive is for: a reusable, parameterized message template the server defines once and any client surfaces. So A wins. The strong runner-up is B (bake it into one tool) — consolidating into a server-side tool does remove duplication and is defensible, but it converts a guided, user-in-the-loop interaction (which includes drafting and requesting sign-off) into an opaque autonomous action, losing the per-step human interaction the workflow depends on and hiding the steps the prompt primitive is meant to expose. C keeps each client orchestrating, so the drift problem persists. D is just shared prose — it has no mechanism to keep clients in sync and is essentially what they already do."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A support agent has two tools: a read-only `get_customer(id)` and a `delete_customer(id)` that permanently and irreversibly purges the account and all its data. Both are currently callable by the model fully autonomously with no gate. You must reduce catastrophic-mistake risk with minimal friction on normal work. What is the best policy?",
+    "options": {
+      "A": "Put a human confirmation/approval gate in front of `delete_customer` because it is irreversible, while leaving the benign read-only `get_customer` ungated",
+      "B": "Require human approval before every tool call from this agent, including reads, so that no action of any kind can happen without an operator explicitly signing off first",
+      "C": "Leave both tools autonomous but add a nightly backup job so any account the agent deletes by mistake can be restored from the previous snapshot the next day",
+      "D": "Add a strict input schema to `delete_customer` validating the id format, so malformed deletion requests are rejected before they can reach the backend"
+    },
+    "answer": "A",
+    "explanation": "The decisive lever is irreversibility: the cost of a wrong `delete_customer` call cannot be undone, while a wrong read is cheap. Gating only the destructive tool targets risk where it matters and keeps friction off the benign read (A). The strong runner-up is B (gate everything) — maximally safe and defensible as a blanket policy, but it loses because the requirement is minimal friction on normal work; forcing approval on harmless reads adds cost with no risk reduction, so it over-applies the gate. C reduces but does not eliminate harm — a daily snapshot still loses up to a day of data and any post-snapshot changes, and irreversible means do not rely on undo. D blocks malformed ids but a perfectly well-formed id for the wrong customer still executes an irreversible purge."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A scheduling tool `set_status(ticket_id, status)` takes `status` as a free-form string. The valid statuses are exactly open, pending, resolved, and closed, but the model keeps passing values like 'in progress', 'Done', or 'resolved.' that the backend rejects, causing failed calls and retries. The set of valid values is small and fixed. What is the most reliable fix?",
+    "options": {
+      "A": "Keep `status` as a free string but document the four allowed values in the tool description and add an example call showing the correct spelling of each",
+      "B": "Return a structured error listing the four valid values whenever an invalid status is submitted, so the model can correct itself on the next attempt",
+      "C": "Keep accepting any string and add a server-side fuzzy-matching layer that maps near-miss inputs like 'Done' onto the closest legal status before applying it",
+      "D": "Constrain the `status` parameter to an enum of the four valid values in the input schema so invalid statuses cannot be passed in the first place"
+    },
+    "answer": "D",
+    "explanation": "The decisive fact is a small, fixed set of valid values, which is the textbook case for an enum constraint in the input schema — the model is shown the allowed set and invalid values become structurally impossible to send (D). The strong runner-up is B (structured error listing the valid values) — good error design that does help the model self-correct, but it loses because it only fixes mistakes after a failed call and round-trip, whereas the enum prevents the bad call entirely; given the value set is fixed, prevention beats reactive correction. A relies on the model honoring prose, which it already is not doing. C silently guesses intent and can map to the wrong status (e.g. 'Done' to 'resolved' vs 'closed'), introducing data corruption."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A reporting MCP server has `select_account(account_id)` which stores the choice in server-side session state, and `generate_report()` which reads that hidden state to know which account to report on. When the orchestrator retries a timed-out `generate_report()` or fires several report requests in parallel, the wrong account's data sometimes comes back. What redesign fixes this most fundamentally?",
+    "options": {
+      "A": "Serialize all calls to this server through a single-threaded queue and disable parallel report generation so the session state is never read while another call is mutating it",
+      "B": "Make the tools stateless by having `generate_report(account_id)` take the account id as an explicit parameter on every call, removing the dependence on hidden session state",
+      "C": "Add a short-lived lock around the session state so `select_account` and `generate_report` cannot interleave, releasing it once each report finishes generating",
+      "D": "Increase the session state's time-to-live and add a `session_id` cookie so a retried `generate_report()` is more likely to find the previously selected account still set"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is hidden server-side state shared across retried and parallel calls — the root cause of the wrong-account results. Passing the account id explicitly on each call makes every invocation self-contained, so retries and parallel calls are independent and correct (B). The strong runner-up is A (serialize through a single-threaded queue) — it does eliminate the race and is a legitimate concurrency control, but it loses because it removes the parallelism the workload wants and only constrains the symptom; the fragile hidden-state coupling remains, and a retry can still operate on a since-changed selection. C is the same trade-off at finer grain — locking preserves the stateful design and its ordering hazards. D makes the stale-state window larger, not smaller, and a session cookie does nothing for parallel requests that each need a different account."
+  }
+]

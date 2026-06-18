@@ -1,0 +1,80 @@
+[
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A customer-facing chat assistant sends a 9,000-token policy manual on every turn, followed by the rolling conversation and the user's newest question. Traffic is steady during business hours but goes idle for 20-30 minutes at a time between sessions. The team enables prompt caching to cut cost on the manual. They report the cache rarely seems to help. What is the MOST likely cause?",
+    "options": {
+      "A": "The manual sits after the conversation history, so variable turns shift the cached prefix and block reuse across requests",
+      "B": "Prompt caching requires temperature 0, and the assistant runs hotter than that to produce more natural-sounding replies",
+      "C": "The cache expires during the 20-30 minute idle gaps because its TTL is only a few minutes, so each session pays full price again",
+      "D": "Caching stores only the model's final responses, and since each user question differs the stored answers never match the new turn"
+    },
+    "answer": "C",
+    "explanation": "The decisive constraint is the traffic pattern: cache TTL is only a few minutes and expires if unused, so 20-30 minute idle gaps guarantee a cold cache at the start of each session, eliminating most of the benefit. A is the strongest runner-up and a real anti-pattern (stable content must come first), but the prompt states the manual is sent first, so ordering is not the fault here. B is false: caching has no temperature-0 requirement. D is false: caching reuses processed prompt prefixes, not final responses."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A nightly job re-classifies 800,000 archived support tickets against a fixed taxonomy. There is no user waiting; results must land in the warehouse before the 8 a.m. report. Cost is the dominant concern and the window is roughly 7 hours. Which approach is MOST appropriate?",
+    "options": {
+      "A": "Fan out synchronous streaming requests across many worker threads to finish as fast as possible and retry failures inline",
+      "B": "Submit the tickets through the Message Batches API and reconcile each result by its custom_id when the batch completes",
+      "C": "Process tickets one at a time on a single low-latency endpoint to keep memory flat and simplify error handling",
+      "D": "Embed every ticket into one giant prompt so the shared taxonomy is cached once and reused for the whole corpus"
+    },
+    "answer": "B",
+    "explanation": "The workload is non-blocking and overnight, which is exactly what the Batches API targets: about 50% cheaper, no low-latency SLA (results within up to ~24h, well inside 7 hours), with each result correlated by custom_id. A optimizes for speed nobody needs and forfeits the batch discount, making it the suboptimal runner-up. C is far too slow for 800k items and still pays full price. D is unworkable: one prompt cannot hold 800k tickets, and stuffing the context pollutes each classification rather than isolating it."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "During a long autonomous coding session, the running context approaches the model's window limit. The architect wants to predict what the harness will do next so downstream tooling can react correctly. Which behavior should they expect?",
+    "options": {
+      "A": "The harness silently drops the oldest messages so the newest tokens always fit within the existing window",
+      "B": "The harness transparently raises the context window for this session so that no information is lost at all",
+      "C": "The harness halts the session and forces a completely fresh restart, discarding all of the prior working context",
+      "D": "The harness summarizes and compacts earlier context, then carries that summary plus the remaining context forward"
+    },
+    "answer": "D",
+    "explanation": "Near the limit the harness compacts: it summarizes earlier turns and continues with that summary plus the remaining context, preserving continuity. A is wrong because nothing is silently dropped; B is wrong because the window is a hard model property that cannot be raised on the fly; C is wrong because there is no forced restart that throws away the work. D is the only behavior that matches how compaction actually preserves state."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "An agent answers questions over a 40 GB document repository. The team currently concatenates as many documents as will fit into each prompt and relies on the model to find the answer. Accuracy is poor and costs are high. What is the FIRST change they should make?",
+    "options": {
+      "A": "Switch every request to the Message Batches API so the lower per-token price offsets the large prompts",
+      "B": "Retrieve only the chunks relevant to each question and pass just those few into the prompt for the model",
+      "C": "Enable prompt caching on the concatenated documents so repeated requests reuse the stored corpus",
+      "D": "Raise the temperature so the model explores more of the supplied context before answering"
+    },
+    "answer": "B",
+    "explanation": "For a corpus far larger than any context window, the foundational fix is retrieval: pull only the relevant chunks so the model reasons over signal instead of being diluted by irrelevant text, which improves accuracy and cuts cost. C only helps if the exact same prefix repeats and still cannot fit 40 GB; it treats a symptom, not the cause, so it is the tempting runner-up. A lowers price but not the accuracy problem and adds latency. D does not address relevance at all and can degrade determinism."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A multi-step research agent passes its full accumulated transcript, including large raw tool dumps from earlier steps, into every subsequent subtask. Later subtasks have started producing answers that reference data unrelated to the current question. Which explanation and remedy is MOST accurate?",
+    "options": {
+      "A": "The earlier tool dumps are polluting later subtasks; isolate irrelevant data so each subtask sees only what it needs",
+      "B": "The transcript exceeded the window and was compacted, so the agent is hallucinating from a lossy summary it should disable",
+      "C": "Prompt caching replayed a stale earlier response, so caching should be turned off to stop the cross-contamination",
+      "D": "The tool dumps were re-read and cached permanently, so the agent must clear the permanent cache between subtasks"
+    },
+    "answer": "A",
+    "explanation": "Carrying irrelevant earlier data into later subtasks is classic context pollution; the remedy is to isolate each subtask so it only receives relevant context. B misattributes the issue to compaction, which carries a faithful summary rather than inventing unrelated data, and disabling it would not help. C is wrong because caching reuses prompt prefixes, not final responses, so it cannot replay a stale answer. D is wrong on two counts: there is no permanent cache, and re-reading re-injects tokens rather than caching them forever."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "An architect is structuring prompts for a high-traffic API where each request shares a large stable system prompt and tool schema but ends with a short, request-specific user query. All of the following help maximize prompt cache hit rates EXCEPT:",
+    "options": {
+      "A": "Placing the stable system prompt and tool schema at the very start of every request",
+      "B": "Keeping the per-request variable content, such as the user's query, at the end of the prompt",
+      "C": "Inserting a unique request identifier near the top of each prompt for easier log correlation",
+      "D": "Keeping request volume steady enough that the cached prefix is reused before its short TTL expires"
+    },
+    "answer": "C",
+    "explanation": "Caching reuses a matching processed prefix, so putting a unique identifier near the top changes the prefix on every request and defeats cache reuse; that is the EXCEPT answer. A and B follow the core rule of stable-content-first, variable-last to maximize the shared prefix. D is also genuinely helpful because the short TTL means steady reuse keeps the entry warm. Only C actively undermines caching."
+  }
+]

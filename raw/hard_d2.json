@@ -1,0 +1,93 @@
+[
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A payments agent exposes an MCP tool `refund_charge(charge_id, amount)`. The transport occasionally times out and the orchestrator retries the same call automatically. Engineers already added a strict input schema and structured error returns, yet finance still reports occasional double refunds. What is the MOST effective NEXT step to eliminate the duplicates?",
+    "options": {
+      "A": "Lower the orchestrator's retry count to a single attempt so the same refund cannot be issued twice in a burst",
+      "B": "Require the caller to pass a client-generated idempotency key and have the server deduplicate retried requests",
+      "C": "Wrap the refund in a confirmation gate so a human operator approves each call before the charge is reversed",
+      "D": "Tighten the input schema further to reject negative or zero amounts and malformed charge identifier strings"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is automatic retries of an irreversible side-effecting call: the server cannot distinguish a retry from a new intent. An idempotency key lets the server collapse retries to a single effect (B). Reducing retries (A) shrinks but does not remove the race and harms reliability for genuine timeouts. A confirmation gate (C) adds friction and still double-fires if the approved call is retried after a timeout. Schema tightening (D) is already applied and addresses malformed input, not duplicate-but-valid retries."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "You are designing how an agent reads a customer's current account balance and account history versus how it moves money. Under MCP conventions, which mapping is correct?",
+    "options": {
+      "A": "Expose balance and history as resources (read-only context) and money movement as a tool (side-effecting action)",
+      "B": "Expose balance and history as tools so the model can refresh them on demand, and money movement as a resource",
+      "C": "Expose all three as resources, since they all concern the same account and share authentication",
+      "D": "Expose all three as tools, because anything the model invokes by name should be modeled as a tool for consistency"
+    },
+    "answer": "A",
+    "explanation": "MCP draws the line by effect: resources supply read-only context that the host pulls in, tools perform side-effecting actions the model invokes. Balance and history are reads; moving money is a side effect (A). B inverts the semantics and makes a destructive action look like passive context. C mislabels a side-effecting transfer as read-only, hiding its risk. D collapses a meaningful safety distinction; not everything addressable should be a tool."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "An internal platform tool `admin_db_op(operation, table, payload)` can run select, insert, update, delete, or drop against any table, chosen via the `operation` argument. The team wants to reduce the security blast radius while keeping agent workflows working. What should they do FIRST?",
+    "options": {
+      "A": "Add a detailed tool description warning the model to use destructive operations cautiously and only when truly necessary",
+      "B": "Keep the single tool but require a confirmation gate before any operation is executed against the production tables",
+      "C": "Split it into narrowly scoped tools (query_table, append_row) and drop schema-altering operations from the agent surface",
+      "D": "Validate the payload against a strict input schema so malformed operations are rejected before they reach the database"
+    },
+    "answer": "C",
+    "explanation": "The decisive lever is blast radius: a do-everything tool means one prompt-injection or model error can drop a table. Least privilege says split into narrow, purpose-built tools and remove dangerous capabilities from the surface entirely (C). A relies on the model obeying prose, which is not a security boundary. B is a reasonable secondary guard but still leaves the catastrophic capability reachable and gateable away by a confused model. D prevents malformed calls but a well-formed `drop` still executes."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "Two MCP tools, `search_invoices` and `lookup_invoices`, accept identical parameters and return the same data; the model keeps picking the wrong one or calling both. The team has confirmed the parameter schemas are already correct and identical. What is the MOST effective fix?",
+    "options": {
+      "A": "Rename one tool with a longer, more technical identifier so the model can tell the two of them apart by name",
+      "B": "Add a required `mode` enum parameter to one tool so the model is forced to disambiguate the call at runtime",
+      "C": "Return a structured error from one tool instructing the model to call the other one instead of this one",
+      "D": "Consolidate to a single tool whose description precisely states what it does and when it should be used"
+    },
+    "answer": "D",
+    "explanation": "Tool descriptions are the primary selection signal, and the root cause is two redundant tools competing for the same intent. Removing the redundancy and writing one precise description resolves the ambiguity at its source (D). Renaming (A) tweaks a weaker signal than the description and keeps the duplicate. Adding a `mode` param (B) complicates the schema without giving the model a reason to prefer either tool. Returning a redirect error (C) wastes a round trip and leaves the confusing pair in place."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A teammate claims, \"MCP is essentially a protocol for compressing and shipping model weights between hosts so tools load faster.\" Which statement most accurately corrects this?",
+    "options": {
+      "A": "MCP is mainly a transport-security layer that enforces HTTPS and authentication between an agent and its tools",
+      "B": "MCP standardizes an interoperable way to expose tools, resources, and prompts to models across different hosts",
+      "C": "MCP is a model-side caching format that stores frequently used tool outputs to reduce repeated computation",
+      "D": "MCP is a runtime that compiles tool definitions into model weights so capabilities are available without network calls"
+    },
+    "answer": "B",
+    "explanation": "MCP is an open standard for interoperably exposing tools, resources, and prompts to models; it has nothing to do with weights or compression (B). A names one concern (transport security) but mislabels the protocol's purpose. C and D both repeat the weights/compression/caching misconception in different forms and are simply false descriptions of MCP."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A tool `provision_environment(spec)` spins up cloud infrastructure that takes minutes and incurs cost. When the spec is invalid the current implementation logs a warning, provisions a default environment anyway, and returns HTTP 200. An agent now silently creates wrong environments. Which change should you prioritize?",
+    "options": {
+      "A": "Keep provisioning the default environment but include a human-readable note in the response explaining the spec was invalid",
+      "B": "Add a confirmation gate so a human operator approves the provisioning step whenever the submitted spec fails validation",
+      "C": "Provision the default environment but emit a far richer warning log that on-call engineers can monitor and reconcile later",
+      "D": "Return a structured error naming the invalid fields and provision nothing, so the agent can correct the spec and retry"
+    },
+    "answer": "D",
+    "explanation": "The failure mode is silent success on a costly, slow action: the tool reports OK while doing the wrong thing. The fix is to fail loudly with a machine-readable, structured error and provision nothing, letting the agent self-correct (D). A and C both keep creating the wrong environment, so the side effect and cost still occur; a note or log does not undo provisioning. B inserts a human into every validation failure instead of simply rejecting bad input the agent could fix itself, and still treats the invalid spec as something to approve rather than reject."
+  },
+  {
+    "domain": "D2",
+    "difficulty": "hard",
+    "q": "A tool `get_open_tickets` is consumed only by an agent that filters, sorts, and counts the tickets before acting. Today it returns a pre-formatted Markdown table with bold headers and emoji status badges. Reliability of downstream steps is poor. Which redesign is the BEST next step, and why?",
+    "options": {
+      "A": "Return a structured machine-readable list of ticket objects with typed fields, since the consumer is the model",
+      "B": "Keep the Markdown table but add a strict input schema so the agent can request only the columns that it needs",
+      "C": "Return the same Markdown output but append a JSON blob at the end so both humans and the agent are well served",
+      "D": "Wrap the existing formatted output in a confirmation gate so the agent verifies the table before it acts on it"
+    },
+    "answer": "A",
+    "explanation": "The decisive constraint is the consumer: a machine that must filter, sort, and count needs structured, typed results, not display formatting the model has to parse back out (A). B adds input control but leaves the brittle Markdown output the downstream steps choke on. C is the tempting runner-up, but emitting both invites the model to parse the prose half and bloats tokens; a machine consumer wants one clean structured payload. D addresses trust, not the parsing fragility causing the unreliability."
+  }
+]

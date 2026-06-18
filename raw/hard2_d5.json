@@ -1,0 +1,80 @@
+[
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "An assistant's prompt is assembled in this order: a tiny per-call config block (current timestamp plus the requesting user's locale, ~40 tokens that change every call), then a 7,000-token stable system prompt and tool catalog that never changes, then the user's question. The team enabled prompt caching but sees almost no cache hits across calls. Which fix recovers cache reuse?",
+    "options": {
+      "A": "Lower the temperature to 0, since prompt caching only reuses a prefix when the model is sampling deterministically",
+      "B": "Drop the per-call timestamp and locale entirely, because any dynamic value anywhere in the prompt makes caching impossible for the whole request",
+      "C": "Move the stable 7,000-token system prompt and tool catalog to the front so it forms the cached prefix, and push the volatile config block to just before the user's question",
+      "D": "Leave the current order untouched but raise the cache TTL substantially, on the theory that the small leading config block will then stay warm long enough to be reused across consecutive calls"
+    },
+    "answer": "C",
+    "explanation": "Caching reuses the longest unchanged PREFIX. With volatile content first, the prefix changes every call and the large stable block can never be cached. Reordering so the 7,000-token stable block leads (and the config goes last, before the question) makes that big segment a reusable prefix. B is the strong runner-up: removing the dynamic values would also restore reuse, but it loses because the timestamp and locale are legitimately needed for behavior — you should not delete required context when simple reordering keeps both the data and the cache benefit. A is a known false statement: caching does not require temperature 0. D misunderstands the mechanic — a longer TTL cannot help when the cached segment is a 40-token block that changes every single call; the problem is ordering, not expiry."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "An interactive coding assistant produces long answers (often 800-1,200 tokens). Users complain it 'feels frozen' for several seconds before anything appears, even though total completion time is acceptable. The product goal is to make each reply feel responsive in the live chat UI. Which approach best addresses the complaint?",
+    "options": {
+      "A": "Submit these chat turns through the Message Batches API to benefit from its discount and higher aggregate throughput across many concurrent users",
+      "B": "Stream the response token-by-token so the user sees output begin almost immediately, improving time-to-first-token and perceived responsiveness during the long generation",
+      "C": "Enable prompt caching on the shared system prompt, on the assumption that a warm cached prefix is what actually governs how quickly the first visible token reaches the user in an interactive chat UI",
+      "D": "Raise the model's maximum output tokens so the full answer is delivered in one larger chunk instead of arriving in smaller, slower pieces"
+    },
+    "answer": "B",
+    "explanation": "The complaint is about perceived latency, specifically the wait before any output appears. Streaming surfaces tokens as they are generated, so time-to-first-token drops and the reply feels responsive even while the long generation continues. A is the strong runner-up because batching is a real cost/throughput lever, but it loses decisively here: batching is asynchronous with no latency guarantee and would make an interactive chat feel worse, not better. C confuses caching (a cost/prefix-processing optimization) with the delivery mechanism — caching can shave some prefill time but does not stream the output the user is waiting on. D is backwards: raising max output tokens does not make output appear sooner and can lengthen the very wait users are complaining about."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A production service calling the API intermittently receives 429 (rate limit) and 529 (overloaded) responses during traffic spikes. The current client catches these and immediately re-issues the same request in a tight loop until it succeeds. Failures get worse during spikes. What is the correct reliability fix?",
+    "options": {
+      "A": "Keep retrying immediately in the tight loop but split each call across two API keys, so the doubled request rate clears the backlog faster during the spike",
+      "B": "Switch every request to the Message Batches API during spikes, because batched jobs are exempt from rate limits and overload conditions on the synchronous endpoint",
+      "C": "Stop retrying entirely and fail fast on the first 429 or 529, since these status codes indicate the request itself is malformed and will never succeed",
+      "D": "Retry the failed requests, but space attempts using exponential backoff with random jitter, capping the number of retries before surfacing the error to the caller"
+    },
+    "answer": "D",
+    "explanation": "429/529 are transient capacity signals. Exponential backoff with jitter spreads retries out so the server can recover and avoids synchronized retry storms, with a retry cap so failures eventually surface. The tight loop is itself worsening the spike by hammering an already-strained endpoint. C is the strong-ish wrong answer but loses on a factual error: 429/529 are transient, not malformed-request errors (that would be 4xx like 400), so failing fast needlessly drops recoverable requests. A makes it worse — adding more immediate load via a second key increases the pressure that caused the throttling. B is false: batch jobs are not magically exempt from capacity limits and introduce up-to-24h latency unacceptable for a synchronous service."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A question-answering agent retrieves 25 documents per query and stuffs all of them into the prompt. Everything fits comfortably inside the context window, yet answer quality is mediocre and the model often cites tangential passages. Analysis shows only about 4 of the 25 documents are actually relevant to a typical question. What change most improves answer quality?",
+    "options": {
+      "A": "Curate the retrieved set down to only the few most relevant documents per query, since irrelevant filler dilutes the model's attention and degrades answers even when it all fits",
+      "B": "Increase retrieval from 25 to 60 documents per query so the genuinely relevant passages are statistically more likely to be present somewhere in the prompt",
+      "C": "Switch to a model with a larger context window so all 25 documents plus extra ones can be included without truncation, removing any fit constraint",
+      "D": "Keep all 25 documents but append a long instruction block telling the model in detail to ignore irrelevant passages and weight each candidate before answering"
+    },
+    "answer": "A",
+    "explanation": "Fitting in the window is not the same as helping. Large amounts of marginally relevant text cause attention dilution / context rot, pulling the model toward tangential passages. Curating to the few high-relevance documents raises the signal-to-noise ratio and directly improves answers. D is the strong runner-up — instructing the model to ignore noise is plausible — but it loses because the irrelevant tokens still consume and dilute attention; a prompt instruction does not undo the degradation that the presence of the noise causes. B and C move in exactly the wrong direction: adding more documents or a bigger window increases the noise rather than reducing it, worsening the dilution that is the actual problem."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A live dashboard must reclassify 5,000 items every 5 minutes and render the updated labels before the next refresh. An engineer proposes routing the job through the Message Batches API to capture its cost discount. The hard requirement is that results are ready within the 5-minute window, every cycle. What is the correct architecture?",
+    "options": {
+      "A": "Use the Message Batches API on the same 5-minute cadence as the dashboard refresh, since batching is by far the cheapest option available and is explicitly designed for exactly this kind of repeating, fixed-size classification workload",
+      "B": "Issue the 5,000 classifications as parallel synchronous requests within each cycle, accepting the higher per-call cost because the batch turnaround cannot guarantee delivery inside the 5-minute SLA",
+      "C": "Raise the model's context window so all 5,000 items can be classified in a single request per cycle, eliminating the need for either batching or parallel calls",
+      "D": "Keep using the Message Batches API but submit a fresh batch every 30 seconds, so that overlapping in-flight batches keep results flowing fast enough to meet the deadline"
+    },
+    "answer": "B",
+    "explanation": "The decisive constraint is the 5-minute SLA per cycle. The Batches API offers no latency guarantee and can take up to ~24h, so it cannot reliably meet a tight, repeating deadline — the discount is irrelevant if the data is late. Parallel synchronous calls give predictable, near-real-time turnaround and are the right tradeoff despite higher cost. A is the strong runner-up (batching genuinely fits a repeating fixed-size workload and is cheapest) but loses precisely on the SLA: cheapest is not usable if it misses the window. C is false — the context window cannot be raised on the fly, and cramming 5,000 items into one call does not fix latency. D misunderstands batch SLAs: stacking more batches does not bound any single batch's completion time, so deadlines can still be missed."
+  },
+  {
+    "domain": "D5",
+    "difficulty": "hard",
+    "q": "A long-running autonomous agent makes an early architectural decision ('use the Postgres connection pool, not direct connections') and keeps working for hours. As context fills, older turns get compacted/summarized, and the agent later risks reintroducing direct connections because the decision is no longer reliably present in its window. What is the most robust way to preserve that decision?",
+    "options": {
+      "A": "Repeat the decision verbatim in every single tool result the agent receives, so the most recent context always restates it no matter how far the run has progressed",
+      "B": "Raise the agent's temperature toward 0 so its outputs become more deterministic and it stops drifting away from the decision it made earlier in the run",
+      "C": "Disable compaction for this agent so the full transcript is always retained verbatim, guaranteeing the early decision is never dropped from the window",
+      "D": "Write the decision and its rationale to an external durable store (a file or database) that the agent re-reads at each major step, instead of relying on it surviving compaction in context"
+    },
+    "answer": "D",
+    "explanation": "Compaction is lossy by design, so anything that must survive indefinitely should live in durable external state the agent re-reads, not be trusted to remain in-context. C is the strong runner-up — never compacting would indeed keep the decision — but it loses on durability/scale: the context window is finite and cannot grow on the fly, so a long run will eventually exhaust it and force eviction or failure; you cannot simply turn compaction off forever. B confuses determinism with memory: temperature affects sampling, not whether a fact is still in the window. A is brittle and wasteful — it depends on the agent's own machinery to inject the text every time and still consumes window space, whereas an external store is the reliable source of truth."
+  }
+]

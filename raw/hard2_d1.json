@@ -1,0 +1,145 @@
+[
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A consulting firm needs to produce a due-diligence report on an acquisition target: simultaneously analyzing the target's financial filings, scraping and summarizing competitor press coverage, reviewing its open-source code repositories for license risk, and assessing its patent portfolio. Each strand is large, open-ended, and can proceed independently, and the firm wants the lead to synthesize them at the end. Which architecture fits best?",
+    "options": {
+      "A": "A single agent with one long system prompt that walks through finance, then press, then code, then patents sequentially within a single conversation so that all gathered context stays co-located and available for the final synthesis step",
+      "B": "An orchestrator that spawns four specialized subagents — one per strand — each with its own scoped brief and tools, running in parallel and returning distilled findings the lead merges into the report",
+      "C": "A fixed deterministic workflow that always runs the same four scripted steps in the same order, since the deliverable structure is known in advance and predictability matters",
+      "D": "A prompt chain where finance output feeds press analysis, which feeds the code review, which feeds the patent assessment, so each stage builds on the last"
+    },
+    "answer": "B",
+    "explanation": "The decisive lever is genuine breadth: four large, independent investigation strands that each justify their own context window and tooling, with a synthesis step at the end — the canonical orchestrator-worker case where parallel subagents pay off. The strong runner-up is D (prompt chaining): chaining is excellent when stages truly depend on each other, but here the strands are independent, so forcing a chain serializes parallelizable work and pollutes each stage with irrelevant upstream context for no gain. A loses because cramming four deep investigations into one context exhausts the window and degrades reasoning — the opposite of distillation. C loses because the work is open-ended and exploratory (judgment about license and patent risk), not a fixed scripted pipeline, so a rigid workflow can't adapt to what each strand uncovers."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A team builds a marketing-copy generator that must: draft a landing page, critique it against a brand-voice checklist, then refine it using the critique. They observe that a single mega-prompt asking for 'draft, then self-critique, then final version' often produces a polished-sounding final that silently ignored several checklist items, and they cannot tell where it went wrong. Each stage's output can be independently validated. What should they do?",
+    "options": {
+      "A": "Keep the single mega-prompt but add a stronger, more explicit instruction demanding the model address every individual checklist item in turn and carefully re-read its own draft against the brand-voice rules before producing the finalized version",
+      "B": "Split into a prompt chain: a draft step, then a critique step whose structured checklist verdict is validated, then a refine step that consumes the validated critique, gating progression at each stage",
+      "C": "Increase the output token limit and lower temperature so the model has room to be thorough and stays consistent across the three internal phases",
+      "D": "Fan out three parallel agents — one drafts, one critiques, one refines — and have an orchestrator combine their independent outputs into the final copy"
+    },
+    "answer": "B",
+    "explanation": "The decisive lever is that each stage is independently verifiable, so breaking the work into a chain lets you gate and inspect the critique before it drives the refinement — the failure becomes visible and catchable. The strong runner-up is A (a tighter mega-prompt): better instructions sometimes help, but a single prompt collapses draft, critique, and refine into one opaque pass, so you still can't validate the intermediate critique or stop a bad one from propagating — exactly the failure described. C loses because the problem is structural (no checkpoint between stages), not a length or temperature issue. D loses because critique and refine genuinely depend on the prior stage's output; running them in parallel is incoherent since refine needs the critique that doesn't exist yet."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An IT help desk receives wildly different request types — password resets, VPN troubleshooting, software-license purchasing approvals, and HR policy questions — each needing different tools, knowledge, and tone. A single all-purpose prompt handles the mix but frequently grabs the wrong tool and mixes policies across domains. Which design most directly addresses this?",
+    "options": {
+      "A": "Keep one prompt but expand it with detailed per-category instructions and the full tool catalog so the model has everything it needs to handle any request in context",
+      "B": "Add a verification subagent after the single prompt that checks whether the response used the right tools and policies, looping back for correction when it detects a mismatch",
+      "C": "A router that first classifies the incoming request type, then dispatches it to a specialized handler scoped to only that domain's tools, knowledge, and tone",
+      "D": "Raise the model size and lower temperature so the single prompt reasons more carefully about which tool and policy applies to each request"
+    },
+    "answer": "C",
+    "explanation": "The decisive lever is that the request types are genuinely heterogeneous with disjoint tools and knowledge, so classify-then-dispatch isolates each handler and eliminates cross-domain bleed at the source. The strong runner-up is A (one richer prompt with all tools): consolidating works for homogeneous traffic, but loading every domain's tools and policies into one context is precisely what causes the wrong-tool grabs and policy mixing here — more context makes the confusion worse, not better. B loses because a post-hoc verifier patches symptoms after the fact and adds a correction loop, rather than preventing the misroute. D loses because the failure is architectural overload, not a reasoning-horsepower or temperature deficit, so a bigger model still juggles incompatible domains."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A lead agent investigating a production incident spawns a subagent to 'find the slowest database query in the last hour.' To be helpful, the lead passes the subagent the entire incident transcript — pages of unrelated logs, hypotheses about a CDN issue, and a half-abandoned theory about TLS certs. The subagent keeps wandering into the CDN and TLS threads instead of querying slow logs. What is the right fix?",
+    "options": {
+      "A": "Give the subagent only a scoped, clean task brief — the query goal, the time window, and the slow-query tool — omitting the unrelated incident transcript",
+      "B": "Keep passing the full transcript but append a strong instruction telling the subagent to ignore the CDN and TLS material and focus solely on slow queries",
+      "C": "Have the lead pre-summarize the entire incident transcript into a shorter recap that still includes the CDN issue and the abandoned TLS-certificate theory, and hand that condensed version to the subagent so it retains the broader picture",
+      "D": "Give the subagent the full transcript plus a larger context window so it has room to process everything without dropping the slow-query objective"
+    },
+    "answer": "A",
+    "explanation": "The decisive lever is context isolation: the subagent's job is narrow, so it should receive only the information that job needs — a clean brief removes the distractor threads entirely. The strong runner-up is C (a condensed recap): summarizing is good hygiene for handing off broad context, but this recap still carries the CDN and TLS theories forward, so the subagent can still be pulled off-task — it treats verbosity, not relevance. B loses because 'please ignore this' instructions are unreliable against salient in-context material that competes for attention. D loses because a bigger window stores the distractions, it doesn't filter them — the subagent still sees and chases the irrelevant threads."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An agent provisions cloud infrastructure and one of its steps permanently deletes a customer's production database to recreate it from a new template. The team wants a human approval gate. Currently the agent plans the whole run, gets one human sign-off on the overall plan at the start, then executes everything autonomously including the delete. Where should the approval gate go to best protect against an irreversible mistake?",
+    "options": {
+      "A": "Keep the single up-front sign-off on the full plan, since approving the complete sequence in advance covers every step including the deletion",
+      "B": "Place a blocking human approval immediately before the delete-database step, pausing execution at that point and proceeding only on explicit confirmation",
+      "C": "Run the deletion automatically but require human review of an audit summary immediately after it completes, so a person can intervene the moment anything looks wrong",
+      "D": "Add an automated safety-check subagent that re-validates the deletion's preconditions right before it runs and approves the step when they all pass"
+    },
+    "answer": "B",
+    "explanation": "The decisive lever is irreversibility: the gate must sit immediately before the destructive step so a human approves the action with the most current state, when stopping is still possible. The strong runner-up is A (up-front plan approval): reviewing the plan early is reasonable governance, but state can drift between approval and execution, and a human rubber-stamping a long plan rarely registers the one catastrophic line — the gate is too far from the action. C loses outright because reviewing after the delete is hopeless: the database is already gone and there is nothing to intervene on. D loses because an automated check can confirm preconditions but cannot supply the human judgment the team explicitly required for an irreversible action."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An agent enriches 5,000 leads by calling a third-party enrichment API that allows 10 concurrent requests and returns 429s beyond that. The current implementation fires all 5,000 calls at once; the API rejects most, the agent's blanket retry storms it further, and the whole job collapses. The team still needs the work parallelized to finish on time. What is the best fix?",
+    "options": {
+      "A": "Process the 5,000 leads strictly one at a time in a single sequential pass, eliminating concurrency entirely so the third-party API is never overwhelmed by simultaneous requests and never returns a 429 under any circumstances",
+      "B": "Keep firing all 5,000 at once but add exponential backoff with jitter to every retry so the storm eventually spreads out and the calls succeed",
+      "C": "Bound concurrency with a semaphore/worker pool capped at the API's 10-request limit, so at most 10 calls are in flight at any time while the rest queue",
+      "D": "Split the 5,000 leads across more parallel agent instances so each handles a smaller batch and the total load is distributed across workers"
+    },
+    "answer": "C",
+    "explanation": "The decisive lever is a known downstream concurrency ceiling: a semaphore/pool capped at 10 keeps the pipeline parallel and fast while never exceeding what the API tolerates — matching offered load to capacity. The strong runner-up is B (backoff with jitter): retry backoff is correct and necessary practice, but it only reacts after the API is already saturated by 5,000 simultaneous calls; without an in-flight cap the system keeps overshooting and thrashing. A loses because fully serializing throws away the parallelism the team needs to finish on time — over-correcting. D loses, and is worse, because more agent instances raise total concurrency against the same shared 10-request limit, intensifying the 429 storm rather than bounding it."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A research agent is told to 'gather competitive pricing until you have enough confidence.' It repeatedly calls a paid web-scraping tool, each time deciding it needs 'just a bit more data,' and on one run made 600 paid calls before a human noticed the bill. The team needs a hard guarantee that no run can exceed a fixed budget. What is the most reliable fix?",
+    "options": {
+      "A": "Rewrite the prompt to tell the agent to stop after it has gathered sufficient data and to be mindful of cost, with an explicit reminder to avoid redundant calls",
+      "B": "Switch the scraping tool to a cheaper provider so that even a long run stays within an acceptable total cost even if the agent keeps looping",
+      "C": "Add a deterministic iteration cap / circuit breaker in code that hard-stops the loop after N tool calls regardless of what the model decides",
+      "D": "Add an evaluator subagent that periodically judges whether enough data has been collected and instructs the main agent to stop when it agrees"
+    },
+    "answer": "C",
+    "explanation": "The decisive lever is the need for a hard guarantee: only a deterministic counter enforced in code can make 'no run exceeds the budget' true regardless of model behavior. The strong runner-up is D (an evaluator that signals stop): an evaluator-optimizer can improve stopping decisions, but it is itself a model whose judgment can be wrong or be ignored, so it provides no guaranteed ceiling — and it adds cost. A loses because prompt-only guidance is exactly what already failed; the model kept rationalizing 'a bit more.' B loses because cheaper-per-call does not bound the number of calls, so an unbounded loop can still blow any budget — it treats the unit price, not the runaway count."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A nightly job converts uploaded invoices to a fixed format: validate schema → extract totals → apply the standard tax rule → write a normalized record. The steps are identical every run, fully specified, with no branching or judgment required. The team currently runs this as a ReAct agent that reasons about what to do at each step, and they see occasional skipped steps and higher latency and token cost than expected. What should they switch to?",
+    "options": {
+      "A": "A predefined deterministic workflow that always executes the four fixed steps in order in code, calling the model only where genuine extraction is needed",
+      "B": "Keep the ReAct loop but constrain it with a detailed system prompt that enumerates the four steps and their exact required order, plus several few-shot examples of correct end-to-end runs so the model reliably follows the prescribed sequence",
+      "C": "An orchestrator that spawns a subagent per step and coordinates them, so each step is owned by a dedicated specialized agent for reliability",
+      "D": "Keep ReAct but add a reflection step after each action where the agent verifies it followed the prescribed pipeline before continuing"
+    },
+    "answer": "A",
+    "explanation": "The decisive lever is that the pipeline is fully known and fixed with no branching, so a deterministic workflow is more reliable, cheaper, and lower-latency than open-ended agent reasoning — you only invoke the model for the genuinely fuzzy extraction. The strong runner-up is B (constraining the ReAct loop): tightening the prompt can reduce errors, but it keeps per-step LLM reasoning that is unnecessary for fixed steps, so it still pays the latency and token cost and still permits skipped steps probabilistically. C loses because multi-agent orchestration adds coordination overhead and cost to a simple linear task — over-engineering. D loses because adding reflection multiplies model calls and cost for steps that never needed reasoning in the first place."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "A multi-step fulfillment workflow runs: charge_card → reserve_inventory → email_receipt → schedule_shipping. It crashed after reserve_inventory on one order, and the team's retry harness re-ran the whole workflow from the top — charging the card a second time and double-reserving stock. They want retries to be safe without abandoning automatic recovery. What is the right fix?",
+    "options": {
+      "A": "Wrap the four steps in a try/catch that, on any failure, rolls everything back and re-runs the entire workflow cleanly from the beginning on the next attempt",
+      "B": "Disable automatic retries entirely and route any workflow that crashed mid-way to a human operator who inspects the order and decides which of the four steps still need to be re-run manually for that particular order",
+      "C": "Add longer timeouts and a health check before each step so the workflow is far less likely to crash mid-way and therefore rarely needs a retry at all",
+      "D": "Make each step idempotent using a stable idempotency key (e.g., the order id) and checkpoint completed steps, so a retry skips already-applied effects and resumes from the failure point"
+    },
+    "answer": "D",
+    "explanation": "The decisive lever is retry safety over side effects: idempotency keys plus checkpointing make re-execution provably safe — a replayed charge or reservation is recognized and skipped — while preserving automatic recovery. The strong runner-up is A (rollback then full re-run): compensating transactions are a legitimate pattern, but a full rollback-and-restart still re-executes side effects on retry and assumes every external effect (a sent email, a captured charge) is cleanly reversible, which often it is not. B loses because it sacrifices the automatic recovery the team explicitly wants to keep. C loses because reducing crash frequency does not make the retries that still happen safe — it lowers the odds of the bug without fixing it."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An orchestrator dispatches a worker subagent to compute a customer's refund eligibility. The worker replies with several paragraphs interleaving its step-by-step reasoning, two discarded hypotheses, and somewhere inside, the actual verdict and amount. The orchestrator frequently parses the wrong number or quotes the discarded hypothesis to the customer. What fixes this most directly?",
+    "options": {
+      "A": "Define a structured return contract the worker must emit — e.g., a typed object with explicit eligible and refund_amount fields — separating the deliverable from any reasoning",
+      "B": "Instruct the worker to put its final answer in the last paragraph and have the orchestrator always read only the worker's final paragraph for the verdict",
+      "C": "Add a dedicated parser agent in between the worker and the orchestrator that reads the worker's free-form prose, discards the reasoning and discarded hypotheses, and extracts just the verdict and refund amount into clean fields for the lead",
+      "D": "Tell the worker to omit all reasoning and reply with only a short sentence stating the verdict and amount in natural language"
+    },
+    "answer": "A",
+    "explanation": "The decisive lever is the orchestrator-worker output contract: a typed result with explicit fields makes the deliverable unambiguous and machine-readable, so the lead never confuses thinking for the answer. The strong runner-up is D (reply with only the verdict): trimming the reasoning reduces clutter, but a free-text sentence is still unstructured and ambiguous to parse, and it discards reasoning that is often useful for auditing — the typed contract keeps the deliverable separable without forcing reasoning to be thrown away. B loses because positional conventions like 'last paragraph' are brittle and break the moment the worker reorders its output. C loses because inserting another LLM parser adds cost and a new failure point to extract what a structured contract would have provided for free."
+  },
+  {
+    "domain": "D1",
+    "difficulty": "hard",
+    "q": "An autonomous migration agent runs for hundreds of steps. Early on it decided, after analysis, to standardize all timestamps to UTC. Two hundred steps later — that decision long since pushed out of its context window — it 'rediscovers' the question and starts writing local-time timestamps, contradicting its earlier work. The team needs the agent to stay consistent with its own prior decisions across a long run. What is the best fix?",
+    "options": {
+      "A": "Move to a much larger context window so the entire run history, including the early UTC decision, stays in context for the full duration of the job",
+      "B": "Periodically summarize the entire conversation so far and prepend that summary to the prompt, keeping an evolving recap of every decision made during the run in the active context at each successive step",
+      "C": "Lower the agent's temperature so it behaves more deterministically and is less likely to reverse a decision it made earlier in the run",
+      "D": "Persist key decisions to an external scratchpad/state file the agent writes to when it decides and re-reads before related steps, so durable facts survive beyond the context window"
+    },
+    "answer": "D",
+    "explanation": "The decisive lever is durable state across a horizon longer than any context window: an external scratchpad the agent re-reads makes the UTC decision a persisted fact it consults rather than something it must remember. The strong runner-up is B (rolling summarization): summaries help, but they are lossy and a specific early decision can be compressed away or dropped over hundreds of steps, so consistency is not guaranteed — externalized state is the durable fix. A loses because any window is finite; a run of unbounded length will eventually exceed it, and bigger windows also degrade recall of buried details. C loses because temperature governs sampling randomness, not memory — the contradiction comes from the decision being absent from context, which lower temperature does nothing to address."
+  }
+]

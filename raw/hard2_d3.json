@@ -1,0 +1,106 @@
+[
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "Your team wants a convention that all .env files are added to .gitignore as a baseline safety habit across every project you personally work on—without forcing teammates to adopt it. Where should this convention live: your ~/.claude/CLAUDE.md, the project's .claude/CLAUDE.md, or neither?",
+    "options": {
+      "A": "In ~/.claude/CLAUDE.md, because that file is automatically synced into every teammate's environment the moment they clone the shared repository and start a session.",
+      "B": "In the project's .claude/CLAUDE.md committed to the repo, since that guarantees the safety rule is applied uniformly for every team member on the project.",
+      "C": "In ~/.claude/CLAUDE.md, since user-level memory applies to you across all projects without imposing the convention on teammates.",
+      "D": "In a shared skill at .claude/skills/env-safety/SKILL.md, so any teammate can invoke the safety check explicitly whenever they need it."
+    },
+    "answer": "C",
+    "explanation": "The correct answer is C. CLAUDE.md scope is the lever: project .claude/CLAUDE.md is committed and applies to the whole team, while ~/.claude/CLAUDE.md is user-level and follows only you across all your projects. For a personal habit you want everywhere but must not force on others, the user-level file is the right home. Runner-up is A, which also names ~/.claude/CLAUDE.md but is wrong about its mechanics: the user-level file lives on your machine and is never inherited by teammates who clone the repo. B is factually fine but defeats the goal by forcing the rule on everyone. D is wrong because skills package invokable capabilities, not always-applied conventions like a .gitignore habit."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "A teammate wants to pre-approve a safe list of commands (npm run build, npm test, npm install) so Claude stops prompting, but does not want that list committed or forced on the rest of the team. Which file and mechanism fits?",
+    "options": {
+      "A": "Add the allow rules to the shared .claude/settings.json so the pre-approved list is committed and every teammate immediately benefits from the same friction-free permissions.",
+      "B": "Add the allow rules to ~/.claude/settings.json at the user level, which applies only to their machine across all projects and is therefore never committed to this repository.",
+      "C": "Add the allow rules to .claude/settings.local.json, which is git-ignored and personal while shared team rules stay in .claude/settings.json.",
+      "D": "Define a personal subagent in ~/.claude/agents/npm-runner.md that is configured to prompt less frequently when it runs npm commands."
+    },
+    "answer": "C",
+    "explanation": "The correct answer is C. settings.local.json is the project-local, git-ignored settings file meant for exactly this: personal allow-rules that travel with the project checkout but are never pushed, while team-wide rules live in the committed settings.json. Runner-up is B (user-level ~/.claude/settings.json), which also avoids committing the list, but it is global to every project and divorced from this repo rather than scoped to it. A is wrong because it commits the list and forces it on the team. D is wrong because subagents do not govern Bash permission prompts."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You must search a large, noisy codebase (thousands of log files and test outputs) for a single missing configuration value, and you are worried the raw search results will flood your main session's context with junk. How should you structure this so the noise stays out of the main context?",
+    "options": {
+      "A": "Enter plan mode first so Claude reads the files carefully and avoids pulling the noisy search results into the working session at all.",
+      "B": "Dispatch the search to a subagent that runs in its own separate context window and returns only the distilled result to the main session.",
+      "C": "Run the search normally and then use /compact afterward to summarize the session so the accumulated noise is compressed away.",
+      "D": "Run Claude Code in headless mode with --output-format json so the search output comes back compact and machine-readable instead of verbose."
+    },
+    "answer": "B",
+    "explanation": "The correct answer is B. A subagent runs in its own isolated context window, so the thousands of noisy log lines and false positives stay in the subagent's context and only a short summary returns to the main session. Runner-up is A: plan mode is genuinely useful, but it only prevents edits—it does not isolate context, and all the noisy files would still be read into the main session. C compresses history after the damage is done rather than preventing the bloat. D is about programmatic invocation and does nothing for in-session context isolation."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You need to guarantee that a `git push --force` to the main branch can never execute, and you separately want to validate and reformat the output of safe git commands after they run. Which hook timing handles each job?",
+    "options": {
+      "A": "Use a PostToolUse hook for both jobs, since a single post-execution hook can deny the dangerous push and also inspect the output of the safe commands.",
+      "B": "Use PreToolUse to deny git push --force before it runs, and PostToolUse to validate and reformat the safe git command output afterward.",
+      "C": "Use a PreToolUse hook for both jobs, since a single pre-execution hook can deny dangerous commands and also validate the safe ones before they run.",
+      "D": "Use PostToolUse to block the force push by catching it right after it fails, and PreToolUse to validate the safe commands before they execute."
+    },
+    "answer": "B",
+    "explanation": "The correct answer is B. PreToolUse fires before execution and is the only hook that can deny a tool call outright, so blocking a force push must happen there; PostToolUse fires after a command succeeds, which is exactly when you can inspect and reformat its output. Runner-up is C, which is partly right—PreToolUse can indeed deny the dangerous command—but it cannot validate output that does not exist yet, so the after-the-fact reformatting still needs PostToolUse. A is wrong because PostToolUse cannot prevent execution. D is backwards: a hook that fires after execution cannot be your blocking mechanism."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You have a task-specific capability (a bug-triage checklist) that should run only when a teammate explicitly types /triage, and Claude must never decide to load it on its own. Is this better built as a skill or as a slash command, and why?",
+    "options": {
+      "A": "A skill, because skills are the standard, idiomatic way to extend Claude's toolkit with any new reusable capability in a project.",
+      "B": "A slash command, because slash commands run only when the user explicitly invokes them and are never autonomously loaded by the model.",
+      "C": "A skill configured so that the model is strongly discouraged in its description from loading the capability unless the user clearly asks for triage help first.",
+      "D": "Either one works identically here; the choice between a skill and a slash command is purely cosmetic and changes nothing about behavior."
+    },
+    "answer": "B",
+    "explanation": "The correct answer is B. Slash commands are invoked explicitly by the user and never load on their own, which is exactly the requirement. Runner-up is C: a skill's whole purpose is that the model detects relevance and loads it autonomously, so trying to suppress that with description wording fights the mechanism instead of using the right one. A is wrong because default skill behavior is autonomous loading, the opposite of what is wanted. D is wrong because skills and commands have fundamentally different invocation semantics."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "Your team needs to share MCP server configuration (an internal database tool and an API connector) so that every developer who clones the repo automatically gets the same servers, version-controlled with the code. Which configuration location is the intended mechanism?",
+    "options": {
+      "A": "Commit a .mcp.json file at the project root; it is the project-scoped MCP config that is checked into the repo and picked up automatically by everyone who clones it.",
+      "B": "Put the server definitions in each developer's ~/.claude.json user config so the team converges on the same setup over time as people copy it.",
+      "C": "Store the servers only in .claude/settings.local.json so the configuration travels with the project checkout while remaining git-ignored.",
+      "D": "Register the servers interactively with `claude mcp add` on each machine, which is the only supported way to make MCP servers available in a project."
+    },
+    "answer": "A",
+    "explanation": "The correct answer is A. A committed .mcp.json at the project root is the purpose-built, version-controlled way to share MCP servers with everyone who clones the repository. Runner-up is C: settings.local.json does travel with the checkout, but it is git-ignored and personal, so it is never shared with teammates—the opposite of the goal. B relies on each user's global config and only converges by manual copying, defeating uniform enforcement. D describes a real command, but it is per-machine and not version-controlled, and it is not the only mechanism—committed .mcp.json is."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "You are wiring Claude Code into a CI/CD job that must pass results to a downstream script, so the output has to be machine-readable rather than human-formatted prose. Which invocation produces that?",
+    "options": {
+      "A": "Run `claude --plan -p` so the job executes in plan mode and emits a structured, machine-readable plan that the downstream script can parse.",
+      "B": "Run `claude -p --output-format json`, which executes headlessly and returns JSON suitable for a downstream script to consume programmatically.",
+      "C": "Run `claude --output-format json` on its own; the -p flag only controls preview mode and is unrelated to whether the output is structured.",
+      "D": "Run `claude --headless --json-output`, using the dedicated headless switch together with its companion JSON output flag for pipelines."
+    },
+    "answer": "B",
+    "explanation": "The correct answer is B. The -p (print/headless) flag runs Claude non-interactively, and --output-format json makes the result structured for a downstream consumer. Runner-up is A, which correctly uses -p for headless mode but pairs it with --plan, conflating headless output with plan mode (which prevents edits and is for interactive review, not pipeline output). C is wrong because it drops -p, which is what makes the run headless, and misdescribes the flag. D invents a --headless switch and a --json-output flag that do not exist."
+  },
+  {
+    "domain": "D3",
+    "difficulty": "hard",
+    "q": "A security policy mandates that nobody can run `rm -rf` against the production backup directory /backup, and it must be stopped before execution rather than detected after the fact. Which combination of hook timing and permission rule gives the strongest guarantee?",
+    "options": {
+      "A": "Add a PostToolUse hook that inspects each Bash command and rejects rm -rf /backup right after it runs, backed by a deny rule for the same command pattern.",
+      "B": "Add a PreToolUse hook that denies the rm -rf /backup call before execution, plus a deny rule Bash(rm -rf /backup) so a denied permission also blocks it for defense in depth.",
+      "C": "Add only the deny rule Bash(rm -rf /backup); since deny rules are evaluated first in permission precedence, a hook would be redundant and add no protection at all.",
+      "D": "Add a PreToolUse hook that denies the command and deliberately omit any deny rule, so the hook remains the single, unambiguous point of enforcement for this policy."
+    },
+    "answer": "B",
+    "explanation": "The correct answer is B. PreToolUse fires before execution and is the only hook that can deny a call up front, and pairing it with a deny permission rule (deny is evaluated ahead of ask/allow) gives two independent layers, so the command is blocked even if one layer is misconfigured. Runner-up is C, which is right that a deny rule alone would block the command, but it dismisses defense in depth—two enforcement points are strictly safer than one for a destructive, irreversible action. A is wrong because PostToolUse fires after execution and cannot prevent it. D weakens the guarantee by relying on a single point of failure."
+  }
+]
