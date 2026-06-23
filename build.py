@@ -355,6 +355,16 @@ function renderQuiz(){
       </div>`;
   }).join('');
   let explBlock = it.revealed ? `<div class="expl"><b>Resposta correta: ${q.answer}.</b> ${esc(q.explanation)}</div>` : '';
+  const lastLabel = s.i===s.items.length-1?'FINALIZAR':'PRÓXIMA →';
+  // com feedback imediato: 1º clique seleciona (reversível), CORRIGIR revela/trava, depois PRÓXIMA avança.
+  let actionBtn;
+  if(opts.instant && !it.revealed){
+    actionBtn = `<button class="btn primary mono" id="nextBtn" onclick="reveal()" ${it.picked?'':'disabled'}>CORRIGIR</button>`;
+  } else if(opts.instant){
+    actionBtn = `<button class="btn primary mono" id="nextBtn" onclick="advance()">${lastLabel}</button>`;
+  } else {
+    actionBtn = `<button class="btn primary mono" id="nextBtn" onclick="nextQ()" ${it.picked?'':'disabled'}>${lastLabel}</button>`;
+  }
   app().innerHTML = `
     <div class="row" style="margin-bottom:6px">
       <button class="btn ghost mono" onclick="quitQuiz()">← SAIR</button>
@@ -370,23 +380,31 @@ function renderQuiz(){
     <div class="foot">
       <span class="sp"></span>
       ${ s.i>0 ? '<button class="btn ghost mono" onclick="prevQ()">← ANTERIOR</button>':''}
-      <button class="btn primary mono" id="nextBtn" onclick="nextQ()" ${it.picked?'':'disabled'}>${ s.i===s.items.length-1?'FINALIZAR':'PRÓXIMA →'}</button>
+      ${actionBtn}
     </div>
   `;
 }
 function pick(key){
   const it=state.items[state.i];
-  if(it.revealed) return;
-  it.picked=key;
-  if(opts.instant){ it.revealed=true; }
+  if(it.revealed) return;       // já corrigida: trava a escolha
+  it.picked=key;                // só seleciona (reversível enquanto não corrige)
   renderQuiz();
 }
-function nextQ(){
+function reveal(){              // feedback imediato: CORRIGIR revela e trava a resposta
+  const it=state.items[state.i];
+  if(!it.picked || it.revealed) return;
+  it.revealed=true;
+  renderQuiz();
+}
+function advance(){            // avança sem mexer no estado de revelado
+  if(state.i < state.items.length-1){ state.i++; renderQuiz(); }
+  else finish();
+}
+function nextQ(){              // modo sem feedback imediato: trava e avança num clique só
   const it=state.items[state.i];
   if(!it.picked) return;
   it.revealed=true;
-  if(state.i < state.items.length-1){ state.i++; renderQuiz(); }
-  else finish();
+  advance();
 }
 function prevQ(){ if(state.i>0){state.i--; renderQuiz();} }
 function quitQuiz(){ if(confirm('Sair do simulado? O progresso atual será descartado.')){ state=null; go('home'); } }
