@@ -10,7 +10,7 @@
       "D": "Caching stores only the model's final responses, and since each user question differs the stored answers never match the new turn"
     },
     "answer": "C",
-    "explanation": "The decisive constraint is the traffic pattern: cache TTL is only a few minutes and expires if unused, so 20-30 minute idle gaps guarantee a cold cache at the start of each session, eliminating most of the benefit. A is the strongest runner-up and a real anti-pattern (stable content must come first), but the prompt states the manual is sent first, so ordering is not the fault here. B is false: caching has no temperature-0 requirement. D is false: caching reuses processed prompt prefixes, not final responses."
+    "explanation": "The decisive constraint is the traffic pattern: cache TTL is 5 minutes and expires if unused, so 20-30 minute idle gaps guarantee a cold cache at the start of each session, eliminating most of the benefit. A is the strongest runner-up and a real anti-pattern (stable content must come first), but the prompt states the manual is sent first, so ordering is not the fault here. B is false: caching has no temperature-0 requirement. D is false: caching reuses processed prompt prefixes, not final responses."
   },
   {
     "domain": "D5",
@@ -23,7 +23,7 @@
       "D": "Embed every ticket into one giant prompt so the shared taxonomy is cached once and reused for the whole corpus"
     },
     "answer": "B",
-    "explanation": "The workload is non-blocking and overnight, which is exactly what the Batches API targets: about 50% cheaper, no low-latency SLA (results within up to ~24h, well inside 7 hours), with each result correlated by custom_id. A optimizes for speed nobody needs and forfeits the batch discount, making it the suboptimal runner-up. C is far too slow for 800k items and still pays full price. D is unworkable: one prompt cannot hold 800k tickets, and stuffing the context pollutes each classification rather than isolating it."
+    "explanation": "The workload is non-blocking and overnight, which is exactly what the Batches API targets: about 50% cheaper, no per-request latency guarantee (up to ~24h maximum), with each result correlated by custom_id. For 800k items and a 7-hour window, cost is the decisive factor and the batch turnaround at this scale is expected well within the window. A optimizes for speed nobody needs and forfeits the batch discount, making it the suboptimal runner-up. C is far too slow for 800k items and still pays full price. D is unworkable: one prompt cannot hold 800k tickets, and stuffing the context pollutes each classification rather than isolating it."
   },
   {
     "domain": "D5",
